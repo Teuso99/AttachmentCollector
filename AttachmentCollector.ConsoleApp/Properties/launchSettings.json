@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "AttachmentCollector.ConsoleApp": {
+      "commandName": "Project",
+      "commandLineArgs": "client_secret_829188257905-j52l8k1bt2sij413ohtv98o52o8ph0v2.apps.googleusercontent.com.json",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

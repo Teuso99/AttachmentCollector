@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Ignore client secret file
+client_secret_829188257905-j52l8k1bt2sij413ohtv98o52o8ph0v2.apps.googleusercontent.com.json

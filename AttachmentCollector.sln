@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.6.33723.286
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AttachmentCollector.ConsoleApp", "InvoiceCollector.ConsoleApp\AttachmentCollector.ConsoleApp.csproj", "{606322EB-3A82-4C1E-9D9C-6A147C54DB2C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AttachmentCollector.ConsoleApp", "AttachmentCollector.ConsoleApp\AttachmentCollector.ConsoleApp.csproj", "{8BAED78D-A599-4E0A-AAB8-B13EBA7789E7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +11,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{606322EB-3A82-4C1E-9D9C-6A147C54DB2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{606322EB-3A82-4C1E-9D9C-6A147C54DB2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{606322EB-3A82-4C1E-9D9C-6A147C54DB2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{606322EB-3A82-4C1E-9D9C-6A147C54DB2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8BAED78D-A599-4E0A-AAB8-B13EBA7789E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BAED78D-A599-4E0A-AAB8-B13EBA7789E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BAED78D-A599-4E0A-AAB8-B13EBA7789E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BAED78D-A599-4E0A-AAB8-B13EBA7789E7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
