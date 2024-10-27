@@ -56,35 +56,54 @@ foreach (var messageId in messagesIds)
 {
     var message = service.Users.Messages.Get(USER_ID, messageId).Execute();
 
-    var attachment = GetAttachment(message);
+    var attachments = GetAttachemnts(message);
 
-    if (string.IsNullOrWhiteSpace(attachment?.Data))
+    if (!attachments.Any())
     {
         continue;
     }
 
-    attachmentsData.Add(attachment.Data);
+    attachmentsData.AddRange(attachments.Select(a => a.Data));
 }
 
 Console.WriteLine(attachmentsData.Count);
 
-MessagePartBody GetAttachment(Message message)
+IEnumerable<MessagePartBody> GetAttachemnts(Message message)
 {
     if (message.Payload is null)
     {
-        throw new ApplicationException("fudeu");
+        throw new ApplicationException("No payload found in message " + message.Id);
     }
 
-    var messageWithAttachment = message.Payload.Parts.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.Data));
+    var attachmentParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.Data));
 
-    if (messageWithAttachment != null)
+    if (attachmentParts != null && attachmentParts.Any())
     {
-        return messageWithAttachment.Body;
+        return attachmentParts.Select(ap => ap.Body);
     }
 
-    var attachmentId = message.Payload.Parts.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.Body?.AttachmentId))?.Body.AttachmentId;
+    var attachmentIdParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Body?.AttachmentId));
 
-    var attachment = service.Users.Messages.Attachments.Get(USER_ID, message.Id, attachmentId).Execute();
+    if (attachmentIdParts is null || !attachmentIdParts.Any())
+    {
+        throw new ApplicationException("No attachment found in message " + message.Id);
+    }
 
-    return attachment ?? throw new ApplicationException("No attachment found in message " + message.Id);
+    List<MessagePartBody> attachments = new List<MessagePartBody>();
+
+    foreach (var attachmentIdPart in attachmentIdParts)
+    {
+        var attachmentId = attachmentIdPart.Body.AttachmentId;
+
+        var attachment = service.Users.Messages.Attachments.Get(USER_ID, message.Id, attachmentId).Execute();
+
+        if (attachment is null || string.IsNullOrWhiteSpace(attachment.Data))
+        {
+            continue;
+        }
+
+        attachments.Add(attachment);
+    }
+
+    return attachments;
 }
