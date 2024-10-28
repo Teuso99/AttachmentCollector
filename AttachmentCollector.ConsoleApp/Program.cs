@@ -10,13 +10,11 @@ if (args[0] is null)
 
 string secretFileName = args[0];
 string secretFilePath = Environment.CurrentDirectory;
+string secretFile = secretFilePath + "\\" + secretFileName;
 
 const string USER_ID = "me";
-
-string[] scopes = { GmailService.Scope.GmailModify };
-
-
-string secretFile = secretFilePath + "\\" + secretFileName;
+const string LABEL_NAME = "AttachmentCollector";
+string[] scopes = [GmailService.Scope.GmailModify];
 
 UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(GoogleClientSecrets.FromFile(secretFile).Secrets, scopes, "user", CancellationToken.None);
 
@@ -25,32 +23,41 @@ if (credential.Token.IsStale)
     await credential.RefreshTokenAsync(CancellationToken.None);
 }
 
-GmailService service = new GmailService(new BaseClientService.Initializer()
+GmailService service = new(new BaseClientService.Initializer()
 {
     HttpClientInitializer = credential,
     ApplicationName = "AttachmentCollector"
 });
 
-var request = service.Users.Messages.List(USER_ID);
-request.LabelIds = "INBOX";
-request.IncludeSpamTrash = false;
-request.Q = "has:attachment";
 
-var response = request.Execute();
+var labelList = service.Users.Labels.List(USER_ID).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
 
-if (response is null)
-{
-    throw new ApplicationException("Enter the secret's file name");
-}
+var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == LABEL_NAME);
 
-if (response.Messages is null || response.Messages.Count == 0)
+var label = attachmentCollectorLabel ?? CreateLabel();
+
+
+var listMessageRequest = service.Users.Messages.List(USER_ID);
+listMessageRequest.LabelIds = "INBOX";
+listMessageRequest.IncludeSpamTrash = false;
+listMessageRequest.Q = "has:attachment";
+
+var listMessageResponse = listMessageRequest.Execute() ?? throw new ApplicationException("Unexpected error when listing messages from the user's inbox");
+
+if (listMessageResponse.Messages is null || listMessageResponse.Messages.Count == 0)
 {
     Console.WriteLine("No messages with attachments found");
     return;
 }
 
-List<string> attachmentsData = new List<string>();
-var messagesIds = response.Messages.Select(m => m.Id);
+List<string> attachmentsData = [];
+List<string> addLabelsList = [label.Id];
+ModifyMessageRequest modifyMessageRequest = new()
+{ 
+    AddLabelIds = addLabelsList
+};
+var messagesIds = listMessageResponse.Messages.Select(m => m.Id);
+
 
 foreach (var messageId in messagesIds)
 {
@@ -64,9 +71,23 @@ foreach (var messageId in messagesIds)
     }
 
     attachmentsData.AddRange(attachments.Select(a => a.Data));
+
+    var modifyMessageResponse = service.Users.Messages.Modify(modifyMessageRequest, USER_ID, messageId).Execute() ?? throw new ApplicationException("Unexpected error when adding label to the message " + message.Id);
 }
 
 Console.WriteLine(attachmentsData.Count);
+
+Label CreateLabel()
+{
+    Label attachmentCollectorLabel = new Label()
+    {
+        Name = "AttachmentCollector"
+    };
+
+    var label = service.Users.Labels.Create(attachmentCollectorLabel, USER_ID).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
+
+    return label;
+}
 
 IEnumerable<MessagePartBody> GetAttachemnts(Message message)
 {
@@ -89,7 +110,7 @@ IEnumerable<MessagePartBody> GetAttachemnts(Message message)
         throw new ApplicationException("No attachment found in message " + message.Id);
     }
 
-    List<MessagePartBody> attachments = new List<MessagePartBody>();
+    List<MessagePartBody> attachments = [];
 
     foreach (var attachmentIdPart in attachmentIdParts)
     {
