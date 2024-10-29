@@ -12,11 +12,11 @@ string secretFileName = args[0];
 string secretFilePath = Environment.CurrentDirectory;
 string secretFile = secretFilePath + "\\" + secretFileName;
 
-const string USER_ID = "me";
-const string LABEL_NAME = "AttachmentCollector";
+const string userId = "me";
+const string labelName = "AttachmentCollector";
 string[] scopes = [GmailService.Scope.GmailModify];
 
-UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(GoogleClientSecrets.FromFile(secretFile).Secrets, scopes, "user", CancellationToken.None);
+var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(GoogleClientSecrets.FromFile(secretFile).Secrets, scopes, "user", CancellationToken.None);
 
 if (credential.Token.IsStale)
 {
@@ -30,14 +30,14 @@ GmailService service = new(new BaseClientService.Initializer()
 });
 
 
-var labelList = service.Users.Labels.List(USER_ID).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
+var labelList = service.Users.Labels.List(userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
 
-var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == LABEL_NAME);
+var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == labelName);
 
 var label = attachmentCollectorLabel ?? CreateLabel();
 
 
-var listMessageRequest = service.Users.Messages.List(USER_ID);
+var listMessageRequest = service.Users.Messages.List(userId);
 listMessageRequest.LabelIds = "INBOX";
 listMessageRequest.IncludeSpamTrash = false;
 listMessageRequest.Q = "has:attachment";
@@ -61,51 +61,50 @@ var messagesIds = listMessageResponse.Messages.Select(m => m.Id);
 
 foreach (var messageId in messagesIds)
 {
-    var message = service.Users.Messages.Get(USER_ID, messageId).Execute();
+    var message = service.Users.Messages.Get(userId, messageId).Execute();
 
-    var attachments = GetAttachemnts(message);
+    var attachments = GetAttachments(message).ToList();
 
-    if (!attachments.Any())
+    if (attachments.Count == 0)
     {
         continue;
     }
 
     attachmentsData.AddRange(attachments.Select(a => a.Data));
 
-    var modifyMessageResponse = service.Users.Messages.Modify(modifyMessageRequest, USER_ID, messageId).Execute() ?? throw new ApplicationException("Unexpected error when adding label to the message " + message.Id);
+    var modifyMessageResponse = service.Users.Messages.Modify(modifyMessageRequest, userId, messageId).Execute();
+
+    if (modifyMessageResponse is null)
+    {
+        throw new ApplicationException("Unexpected error when adding label to the message " + message.Id);
+    }
 }
 
 Console.WriteLine(attachmentsData.Count);
+return;
 
 Label CreateLabel()
 {
-    Label attachmentCollectorLabel = new Label()
-    {
-        Name = "AttachmentCollector"
-    };
-
-    var label = service.Users.Labels.Create(attachmentCollectorLabel, USER_ID).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
-
-    return label;
+    return service.Users.Labels.Create(new Label() { Name = "AttachmentCollector" }, userId).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
 }
 
-IEnumerable<MessagePartBody> GetAttachemnts(Message message)
+IEnumerable<MessagePartBody> GetAttachments(Message message)
 {
     if (message.Payload is null)
     {
         throw new ApplicationException("No payload found in message " + message.Id);
     }
 
-    var attachmentParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.Data));
+    var attachmentParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.Data)).ToList();
 
-    if (attachmentParts != null && attachmentParts.Any())
+    if (attachmentParts.Count > 0)
     {
         return attachmentParts.Select(ap => ap.Body);
     }
 
-    var attachmentIdParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Body?.AttachmentId));
+    var attachmentIdParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Body?.AttachmentId)).ToList();
 
-    if (attachmentIdParts is null || !attachmentIdParts.Any())
+    if (attachmentIdParts is null || attachmentIdParts.Count == 0)
     {
         throw new ApplicationException("No attachment found in message " + message.Id);
     }
@@ -116,7 +115,7 @@ IEnumerable<MessagePartBody> GetAttachemnts(Message message)
     {
         var attachmentId = attachmentIdPart.Body.AttachmentId;
 
-        var attachment = service.Users.Messages.Attachments.Get(USER_ID, message.Id, attachmentId).Execute();
+        var attachment = service.Users.Messages.Attachments.Get(userId, message.Id, attachmentId).Execute();
 
         if (attachment is null || string.IsNullOrWhiteSpace(attachment.Data))
         {
