@@ -2,15 +2,14 @@
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Services;
+using Microsoft.IdentityModel.Tokens;
 
 if (args[0] is null)
 {
     throw new ApplicationException("Enter the secret's file name");
 }
 
-string secretFileName = args[0];
-string secretFilePath = Environment.CurrentDirectory;
-string secretFile = secretFilePath + "\\" + secretFileName;
+string secretFile = Environment.CurrentDirectory + "\\" + args[0];
 
 const string userId = "me";
 const string labelName = "AttachmentCollector";
@@ -29,13 +28,11 @@ GmailService service = new(new BaseClientService.Initializer()
     ApplicationName = "AttachmentCollector"
 });
 
-
 var labelList = service.Users.Labels.List(userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
 
 var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == labelName);
 
 var label = attachmentCollectorLabel ?? CreateLabel();
-
 
 var listMessageRequest = service.Users.Messages.List(userId);
 listMessageRequest.LabelIds = "INBOX";
@@ -50,37 +47,41 @@ if (listMessageResponse.Messages is null || listMessageResponse.Messages.Count =
     return;
 }
 
-List<string> attachmentsData = [];
+Dictionary<string, string> attachmentsMetadata = new();
 List<string> addLabelsList = [label.Id];
 ModifyMessageRequest modifyMessageRequest = new()
 { 
     AddLabelIds = addLabelsList
 };
-var messagesIds = listMessageResponse.Messages.Select(m => m.Id);
 
+var messagesIds = listMessageResponse.Messages.Select(m => m.Id);
 
 foreach (var messageId in messagesIds)
 {
     var message = service.Users.Messages.Get(userId, messageId).Execute();
 
-    var attachments = GetAttachments(message).ToList();
+    var attachments = GetAttachments(message);
 
     if (attachments.Count == 0)
     {
         continue;
     }
-
-    attachmentsData.AddRange(attachments.Select(a => a.Data));
-
+    
     var modifyMessageResponse = service.Users.Messages.Modify(modifyMessageRequest, userId, messageId).Execute();
 
     if (modifyMessageResponse is null)
     {
         throw new ApplicationException("Unexpected error when adding label to the message " + message.Id);
     }
+    
+    attachmentsMetadata = attachmentsMetadata.Concat(attachments).ToDictionary();
 }
 
-Console.WriteLine(attachmentsData.Count);
+foreach (var attachmentMetadata in attachmentsMetadata)
+{
+    await File.WriteAllBytesAsync(Environment.CurrentDirectory + "\\" + attachmentMetadata.Key, Base64UrlEncoder.DecodeBytes(attachmentMetadata.Value));
+}
+
 return;
 
 Label CreateLabel()
@@ -88,42 +89,33 @@ Label CreateLabel()
     return service.Users.Labels.Create(new Label() { Name = "AttachmentCollector" }, userId).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
 }
 
-IEnumerable<MessagePartBody> GetAttachments(Message message)
+Dictionary<string, string> GetAttachments(Message message)
 {
     if (message.Payload is null)
     {
         throw new ApplicationException("No payload found in message " + message.Id);
     }
 
-    var attachmentParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.Data)).ToList();
+    var attachmentParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Filename) && !string.IsNullOrWhiteSpace(p.Body?.AttachmentId)).ToList();
 
-    if (attachmentParts.Count > 0)
+    if (attachmentParts.Count == 0)
     {
-        return attachmentParts.Select(ap => ap.Body);
+        throw new ApplicationException("Unexpected error when collecting attachments from the message " + message.Id);
     }
 
-    var attachmentIdParts = message.Payload.Parts.Where(p => !string.IsNullOrWhiteSpace(p.Body?.AttachmentId)).ToList();
+    var attachmentsDictionary = new Dictionary<string, string>();
 
-    if (attachmentIdParts is null || attachmentIdParts.Count == 0)
+    foreach (var attachmentPart in attachmentParts)
     {
-        throw new ApplicationException("No attachment found in message " + message.Id);
-    }
+        var attachmentResponse = service.Users.Messages.Attachments.Get(userId, message.Id, attachmentPart.Body.AttachmentId).Execute();
 
-    List<MessagePartBody> attachments = [];
-
-    foreach (var attachmentIdPart in attachmentIdParts)
-    {
-        var attachmentId = attachmentIdPart.Body.AttachmentId;
-
-        var attachment = service.Users.Messages.Attachments.Get(userId, message.Id, attachmentId).Execute();
-
-        if (attachment is null || string.IsNullOrWhiteSpace(attachment.Data))
+        if (attachmentResponse is null)
         {
-            continue;
+            throw new ApplicationException("Unexpected error when collecting attachments from the message " + message.Id);
         }
-
-        attachments.Add(attachment);
+        
+        attachmentsDictionary.Add(attachmentPart.Filename, attachmentResponse.Data);
     }
-
-    return attachments;
+    
+    return attachmentsDictionary;
 }
