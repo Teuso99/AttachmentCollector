@@ -1,5 +1,6 @@
 ﻿using AttachmentCollector.ConsoleApp;
 using Google.Apis.Auth.OAuth2;
+using Google.Apis.Drive.v3;
 using Google.Apis.Gmail.v1;
 using Microsoft.IdentityModel.Tokens;
 
@@ -11,7 +12,7 @@ if (args[0] is null)
 var secretFile = Environment.CurrentDirectory + "\\" + args[0];
 
 const string userId = "me";
-string[] scopes = [GmailService.Scope.GmailModify];
+string[] scopes = [GmailService.Scope.GmailModify, DriveService.Scope.Drive];
 
 var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(GoogleClientSecrets.FromFile(secretFile).Secrets, scopes, "user", CancellationToken.None);
 
