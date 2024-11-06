@@ -17,11 +17,11 @@ public class DriveClientService(UserCredential credential)
     public async Task UploadFile(string fileName, Stream fileStream)
     {
         var folderListRequest = _driveService.Files.List();
-        folderListRequest.Q = "name=AttachmentCollector";
+        folderListRequest.Q = "name = 'AttachmentCollector'";
         
-        var folderList = folderListRequest.Execute();
+        var folderList = await folderListRequest.ExecuteAsync();
         
-        var baseFolderId = folderList is null ? CreateFolder("AttachmentCollector") : folderList.Files.First().Id;
+        var baseFolderId = folderList is null || folderList.Files.Count == 0 ? CreateFolder("AttachmentCollector") : folderList.Files.First().Id;
 
         var fileMimeType = MimeTypeHelper.GetMimeType(fileName);
         var folderId = CreateFolder(fileName.Split('.').First(), baseFolderId);
