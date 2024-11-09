@@ -14,7 +14,7 @@ public class DriveClientService(UserCredential credential)
         ApplicationName = "AttachmentCollector"
     });
 
-    public async Task UploadFile(string fileName, Stream fileStream)
+    public async Task UploadFile(AttachmentDTO attachment)
     {
         var folderListRequest = _driveService.Files.List();
         folderListRequest.Q = "name = 'AttachmentCollector'";
@@ -23,17 +23,16 @@ public class DriveClientService(UserCredential credential)
         
         var baseFolderId = folderList is null || folderList.Files.Count == 0 ? CreateFolder("AttachmentCollector") : folderList.Files.First().Id;
 
-        var fileMimeType = MimeTypeHelper.GetMimeType(fileName);
-        var folderId = CreateFolder(fileName.Split('.').First(), baseFolderId);
+        var folderId = CreateFolder(attachment.FolderName, baseFolderId);
         
         var file = new File()
         {
-            Name = fileName,
-            MimeType = fileMimeType,
-            Parents = new string[] { folderId }
+            Name = attachment.FileName,
+            MimeType = attachment.MimeType,
+            Parents = [folderId]
         };
         
-        var fileResponse = await _driveService.Files.Create(file, fileStream, fileMimeType).UploadAsync() ?? throw new ApplicationException("File could not be uploaded.");
+        var fileResponse = await _driveService.Files.Create(file, attachment.FileStream, attachment.MimeType).UploadAsync() ?? throw new ApplicationException("File could not be uploaded.");
 
         if (fileResponse.Status != UploadStatus.Completed)
         {

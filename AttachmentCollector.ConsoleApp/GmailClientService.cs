@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
@@ -8,7 +9,7 @@ namespace AttachmentCollector.ConsoleApp;
 
 public class GmailClientService(UserCredential credential, string userId)
 {
-    const string LabelName = "AttachmentCollector";
+    private const string LabelName = "AttachmentCollector";
     
     private readonly GmailService _service = new(new BaseClientService.Initializer()
     {
@@ -16,13 +17,9 @@ public class GmailClientService(UserCredential credential, string userId)
         ApplicationName = "AttachmentCollector"
     });
 
-    public Dictionary<string, string> GetAttachments()
+    public List<AttachmentDTO> GetAttachments()
     {
-        var labelList = _service.Users.Labels.List(userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
-
-        var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == LabelName);
-
-        var label = attachmentCollectorLabel ?? CreateLabel();
+        var label = GetLabel() ?? CreateLabel();
 
         var listMessageRequest = _service.Users.Messages.List(userId);
         listMessageRequest.LabelIds = "INBOX";
@@ -36,7 +33,7 @@ public class GmailClientService(UserCredential credential, string userId)
             throw new ApplicationException("No messages with attachments found");
         }
 
-        Dictionary<string, string> attachmentsMetadata = new();
+        var attachmentList = new List<AttachmentDTO>();
         List<string> addLabelsList = [label.Id];
         ModifyMessageRequest modifyMessageRequest = new()
         { 
@@ -49,7 +46,7 @@ public class GmailClientService(UserCredential credential, string userId)
         {
             var message = _service.Users.Messages.Get(userId, messageId).Execute();
 
-            var attachments = GetAttachments(message);
+            var attachments = GetAttachmentsFromMessage(message);
 
             if (attachments.Count == 0)
             {
@@ -63,10 +60,19 @@ public class GmailClientService(UserCredential credential, string userId)
                 throw new ApplicationException("Unexpected error when adding label to the message " + message.Id);
             }
     
-            attachmentsMetadata = attachmentsMetadata.Concat(attachments).ToDictionary();
+            attachmentList.AddRange(attachments);
         }
 
-        return attachmentsMetadata;
+        return attachmentList;
+    }
+
+    private Label? GetLabel()
+    {
+        var labelList = _service.Users.Labels.List(userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
+
+        var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == LabelName);
+
+        return attachmentCollectorLabel;
     }
     
     private Label CreateLabel()
@@ -74,7 +80,7 @@ public class GmailClientService(UserCredential credential, string userId)
         return _service.Users.Labels.Create(new Label() { Name = "AttachmentCollector" }, userId).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
     }
 
-    private Dictionary<string, string> GetAttachments(Message message)
+    private List<AttachmentDTO> GetAttachmentsFromMessage(Message message)
     {
         if (message.Payload is null)
         {
@@ -88,7 +94,7 @@ public class GmailClientService(UserCredential credential, string userId)
             throw new ApplicationException("Unexpected error when collecting attachments from the message " + message.Id);
         }
 
-        var attachmentsDictionary = new Dictionary<string, string>();
+        var attachmentList = new List<AttachmentDTO>();
 
         foreach (var attachmentPart in attachmentParts)
         {
@@ -99,9 +105,10 @@ public class GmailClientService(UserCredential credential, string userId)
                 throw new ApplicationException("Unexpected error when collecting attachments from the message " + message.Id);
             }
         
-            attachmentsDictionary.Add(attachmentPart.Filename, attachmentResponse.Data);
+            var attachment = new AttachmentDTO(message, attachmentPart, attachmentResponse);
+            attachmentList.Add(attachment);
         }
     
-        return attachmentsDictionary;
+        return attachmentList;
     }
 }

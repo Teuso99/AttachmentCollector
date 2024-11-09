@@ -24,13 +24,9 @@ if (credential.Token.IsStale)
 var gmailClient = new GmailClientService(credential, userId);
 var driveClient = new DriveClientService(credential);
 
-var attachmentsMetadata = gmailClient.GetAttachments();
+var attachments = gmailClient.GetAttachments();
 
-foreach (var attachmentMetadata in attachmentsMetadata)
+foreach (var attachment in attachments)
 {
-    var decodedFileData =  Base64UrlEncoder.DecodeBytes(attachmentMetadata.Value);
-    
-    var fileStream = new MemoryStream(decodedFileData);
-    
-    await driveClient.UploadFile(attachmentMetadata.Key, fileStream);
+    await driveClient.UploadFile(attachment);
 }
