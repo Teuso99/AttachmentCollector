@@ -23,7 +23,7 @@ public class DriveClientService(UserCredential credential)
         
         var baseFolderId = folderList is null || folderList.Files.Count == 0 ? CreateFolder("AttachmentCollector") : folderList.Files.First().Id;
 
-        var folderId = CreateFolder(attachment.FolderName, baseFolderId);
+        var folderId = await GetFolderByName(attachment.FolderName) ?? CreateFolder(attachment.FolderName, baseFolderId);
         
         var file = new File()
         {
@@ -56,5 +56,15 @@ public class DriveClientService(UserCredential credential)
         var folderResponse = _driveService.Files.Create(folder).Execute() ?? throw new ApplicationException("Failed to create folder");
         
         return folderResponse.Id;
+    }
+
+    private async Task<string?> GetFolderByName(string folderName)
+    {
+        var folderListRequest = _driveService.Files.List();
+        folderListRequest.Q = $"name = '{folderName}'";
+        
+        var folderList = await folderListRequest.ExecuteAsync();
+        
+        return folderList.Files.FirstOrDefault()?.Id; 
     }
 }

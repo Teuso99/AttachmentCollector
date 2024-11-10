@@ -2,7 +2,6 @@
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Gmail.v1;
-using Microsoft.IdentityModel.Tokens;
 
 if (args[0] is null)
 {

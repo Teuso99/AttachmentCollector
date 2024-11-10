@@ -5,10 +5,10 @@ namespace AttachmentCollector.ConsoleApp;
 
 public class AttachmentDTO
 {
-    public string FolderName { get; set; }
-    public string FileName { get; set; }
-    public Stream FileStream { get; set; }
-    public string MimeType { get; set; }
+    public string FolderName { get; private set; }
+    public string FileName { get; private set; }
+    public Stream FileStream { get; private set; }
+    public string MimeType { get; private set; }
 
     public AttachmentDTO(Message message, MessagePart messagePart, MessagePartBody bodyPart)
     {
@@ -24,15 +24,13 @@ public class AttachmentDTO
     private static string CreateFolderName(Message message)
     {
         var mailSubject = message.GetMailSubject();
-        var mailSender = message.GetMailSender();
-        
-        var folderName = DateTime.Now.ToString("yyyyMMdd");
+        var mailSender = message.GetMailSender().RemoveEmailAddress();
 
-        if (mailSender.Contains("reply", StringComparison.CurrentCultureIgnoreCase))
+        if (mailSender.Contains("reply", StringComparison.CurrentCultureIgnoreCase) || string.IsNullOrWhiteSpace(mailSender))
         {
-            return folderName + "_" + mailSubject;
+            return mailSubject;
         }
         
-        return folderName + "_" + mailSender; 
+        return mailSender; 
     }
 }
