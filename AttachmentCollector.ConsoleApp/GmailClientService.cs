@@ -22,11 +22,13 @@ public class GmailClientService(UserCredential credential, string userId)
         var listMessageRequest = _service.Users.Messages.List(userId);
         listMessageRequest.LabelIds = "INBOX";
         listMessageRequest.IncludeSpamTrash = false;
-        listMessageRequest.Q = "has:attachment";
+        listMessageRequest.Q = "has:attachment -label:AttachmentCollector";
 
         var listMessageResponse = listMessageRequest.Execute() ?? throw new ApplicationException("Unexpected error when listing messages from the user's inbox");
 
-        if (listMessageResponse.Messages is null || listMessageResponse.Messages.Count == 0)
+        var messages = listMessageResponse.Messages?.ToList();
+        
+        if (messages is null || messages.Count == 0)
         {
             throw new ApplicationException("No messages with attachments found");
         }
@@ -38,7 +40,7 @@ public class GmailClientService(UserCredential credential, string userId)
             AddLabelIds = addLabelsList
         };
 
-        var messagesIds = listMessageResponse.Messages.Select(m => m.Id);
+        var messagesIds = messages.Select(m => m.Id);
 
         foreach (var messageId in messagesIds)
         {
