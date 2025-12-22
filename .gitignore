@@ -367,3 +367,6 @@ client_secret_829188257905-j52l8k1bt2sij413ohtv98o52o8ph0v2.apps.googleuserconte
 
 # Rider configs
 .idea/
+
+# Ignore launch settings file containing environment variables
+**/Properties/launchSettings.json
