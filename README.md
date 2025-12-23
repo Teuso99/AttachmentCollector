@@ -1,19 +1,20 @@
-# InvoiceCollector :construction_worker: :construction: :construction_worker:
+AttachmentCollector
+About
 
-## About
-InvoiceCollector is a console app that saves attachments from Gmail in Google Drive. 
+AttachmentCollector is a console app that saves attachments from Gmail in Google Drive.
+How to Use
 
-## How to Use
 Open the console and navigate to the main folder of the project. Then use command:
 
-```bash
 dotnet restore
-```
-Then, after restoring all the dependencies, use:
 
-```bash
-dotnet run
-```
+Then, after restoring all the dependencies, build the project:
 
-## License
+dotnet build
+
+Finally, run the project passing the path to the secret file
+
+AttachmentCollector.ConsoleApp.exe secret_file.json
+
+License
 This project is for study purposes only. Feel free to use.
