@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.Core" Version="2.8.0" />
+    <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.4" />
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.68.0.3574" />
     <PackageReference Include="Google.Apis.Gmail.v1" Version="1.68.0.3427" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
