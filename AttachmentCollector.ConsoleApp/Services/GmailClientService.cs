@@ -2,24 +2,28 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Services;
+using Microsoft.Extensions.Logging;
 
-namespace AttachmentCollector.ConsoleApp;
+namespace AttachmentCollector.ConsoleApp.Services;
 
-public class GmailClientService(UserCredential credential, string userId)
+public class GmailClientService(UserCredential credential, string userId, ILogger<GmailClientService> logger)
+    : IGmailClientService
 {
     private const string LabelName = "AttachmentCollector";
-    
     private readonly GmailService _service = new(new BaseClientService.Initializer()
     {
         HttpClientInitializer = credential,
         ApplicationName = "AttachmentCollector"
     });
+    
+    private readonly string _userId = userId;
+    private readonly ILogger<GmailClientService> _logger = logger;
 
     public List<AttachmentDTO> GetAttachments()
     {
         var label = GetLabel() ?? CreateLabel();
 
-        var listMessageRequest = _service.Users.Messages.List(userId);
+        var listMessageRequest = _service.Users.Messages.List(_userId);
         listMessageRequest.LabelIds = "INBOX";
         listMessageRequest.IncludeSpamTrash = false;
         listMessageRequest.Q = "has:attachment -label:AttachmentCollector";
@@ -44,16 +48,17 @@ public class GmailClientService(UserCredential credential, string userId)
 
         foreach (var messageId in messagesIds)
         {
-            var message = _service.Users.Messages.Get(userId, messageId).Execute();
+            var message = _service.Users.Messages.Get(_userId, messageId).Execute();
 
             var attachments = GetAttachmentsFromMessage(message);
 
             if (attachments.Count == 0)
             {
+                _logger.Log(LogLevel.Information, $"No attachments found in message {message.Id}.");
                 continue;
             }
     
-            var modifyMessageResponse = _service.Users.Messages.Modify(modifyMessageRequest, userId, messageId).Execute();
+            var modifyMessageResponse = _service.Users.Messages.Modify(modifyMessageRequest, _userId, messageId).Execute();
 
             if (modifyMessageResponse is null)
             {
@@ -68,7 +73,7 @@ public class GmailClientService(UserCredential credential, string userId)
 
     private Label? GetLabel()
     {
-        var labelList = _service.Users.Labels.List(userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
+        var labelList = _service.Users.Labels.List(_userId).Execute() ?? throw new ApplicationException("Unexpected error when retrieving the label list");
 
         var attachmentCollectorLabel = labelList.Labels.FirstOrDefault(l => l.Name == LabelName);
 
@@ -77,7 +82,14 @@ public class GmailClientService(UserCredential credential, string userId)
     
     private Label CreateLabel()
     {
-        return _service.Users.Labels.Create(new Label() { Name = "AttachmentCollector" }, userId).Execute() ?? throw new ApplicationException("Unexpected error when creating the app's label");
+        var label = _service.Users.Labels.Create(new Label() { Name = "AttachmentCollector" }, _userId).Execute();
+
+        if (label is null)
+        {
+            _logger.Log(LogLevel.Error, $"Unable to create label!");
+        }
+        
+        return label;
     }
 
     private List<AttachmentDTO> GetAttachmentsFromMessage(Message message)
@@ -98,7 +110,7 @@ public class GmailClientService(UserCredential credential, string userId)
 
         foreach (var attachmentPart in attachmentParts)
         {
-            var attachmentResponse = _service.Users.Messages.Attachments.Get(userId, message.Id, attachmentPart.Body.AttachmentId).Execute();
+            var attachmentResponse = _service.Users.Messages.Attachments.Get(_userId, message.Id, attachmentPart.Body.AttachmentId).Execute();
 
             if (attachmentResponse is null)
             {

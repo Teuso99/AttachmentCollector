@@ -2,17 +2,19 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using Google.Apis.Upload;
+using Microsoft.Extensions.Logging;
 using File = Google.Apis.Drive.v3.Data.File;
 
-namespace AttachmentCollector.ConsoleApp;
+namespace AttachmentCollector.ConsoleApp.Services;
 
-public class DriveClientService(UserCredential credential)
+public class DriveClientService(UserCredential credential, ILogger<DriveClientService> logger) : IDriveClientService
 {
     private readonly DriveService _driveService = new(new BaseClientService.Initializer()
     {
         HttpClientInitializer = credential,
         ApplicationName = "AttachmentCollector"
     });
+    private readonly ILogger<DriveClientService> _logger = logger;
 
     public async Task UploadFile(AttachmentDTO attachment)
     {
@@ -54,6 +56,8 @@ public class DriveClientService(UserCredential credential)
         }
         
         var folderResponse = _driveService.Files.Create(folder).Execute() ?? throw new ApplicationException("Failed to create folder");
+        
+        _logger.Log(LogLevel.Information, $"Folder created: {folderResponse.Name}");
         
         return folderResponse.Id;
     }
